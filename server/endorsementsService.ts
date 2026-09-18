@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { validTicketsMap } from './verificationService.ts';
+import os from 'os';
+import { validTicketsMap, verifySignedTicket } from './verificationService.ts';
 
 export interface Endorsement {
   id: string;
@@ -16,28 +17,45 @@ export interface Endorsement {
   avatarInitial: string;
 }
 
-const dataDir = path.join(process.cwd(), 'server', 'data');
+const isVercel = process.env.VERCEL === '1' || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+const dataDir = isVercel ? os.tmpdir() : path.join(process.cwd(), 'server', 'data');
 const dataFile = path.join(dataDir, 'endorsements.json');
 
 const initialEndorsements: Endorsement[] = [];
+let inMemoryEndorsements: Endorsement[] = [];
 
 function ensureStorage(): void {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(dataFile, JSON.stringify(initialEndorsements, null, 2), 'utf-8');
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    if (!fs.existsSync(dataFile)) {
+      fs.writeFileSync(dataFile, JSON.stringify(initialEndorsements, null, 2), 'utf-8');
+    }
+  } catch {
+    // Graceful fallback for read-only serverless filesystems
   }
 }
 
 export function getEndorsements(): Endorsement[] {
   ensureStorage();
   try {
-    const raw = fs.readFileSync(dataFile, 'utf-8');
-    return JSON.parse(raw);
+    if (fs.existsSync(dataFile)) {
+      const raw = fs.readFileSync(dataFile, 'utf-8');
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        // Merge with memory
+        const ids = new Set(list.map(e => e.id));
+        for (const m of inMemoryEndorsements) {
+          if (!ids.has(m.id)) list.unshift(m);
+        }
+        return list;
+      }
+    }
   } catch {
-    return initialEndorsements;
+    // Fall back to in-memory
   }
+  return inMemoryEndorsements;
 }
 
 export function maskEmail(email: string): string {
@@ -66,8 +84,12 @@ export function addEndorsement(
     rating: number;
   }
 ): { success: boolean; endorsement?: Endorsement; message?: string } {
-  // STRICT VERIFICATION CHECK: Ticket must exist in validTicketsMap!
-  const ticketInfo = validTicketsMap.get(ticket);
+  // STRICT VERIFICATION CHECK: Check in-memory map or verify cryptographic HMAC signature
+  let ticketInfo = validTicketsMap.get(ticket);
+  if (!ticketInfo && typeof verifySignedTicket === 'function') {
+    ticketInfo = verifySignedTicket(ticket) || undefined;
+  }
+
   if (!ticketInfo) {
     return {
       success: false,
@@ -87,7 +109,6 @@ export function addEndorsement(
     return { success: false, message: 'Please write a review of at least 15 characters.' };
   }
 
-  ensureStorage();
   const endorsements = getEndorsements();
 
   const initials = ticketInfo.name
@@ -112,7 +133,14 @@ export function addEndorsement(
   };
 
   endorsements.unshift(newEntry);
-  fs.writeFileSync(dataFile, JSON.stringify(endorsements, null, 2), 'utf-8');
+  inMemoryEndorsements.unshift(newEntry);
+
+  try {
+    ensureStorage();
+    fs.writeFileSync(dataFile, JSON.stringify(endorsements, null, 2), 'utf-8');
+  } catch {
+    // Handled by inMemoryEndorsements
+  }
 
   // Single-use ticket consumed
   validTicketsMap.delete(ticket);

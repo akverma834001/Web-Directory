@@ -1,8 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { processContactSubmission } from '../server/contactHandler.ts';
+import { requestVerification } from '../../server/verificationService.ts';
 
 export default async function handler(req: IncomingMessage & { body?: any }, res: ServerResponse) {
-  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -32,19 +31,21 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
     for await (const chunk of req) {
       buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
-    const raw = Buffer.concat(buffers).toString();
     try {
-      body = JSON.parse(raw);
+      body = JSON.parse(Buffer.concat(buffers).toString());
     } catch {
       body = {};
     }
   }
 
-  const headers = req.headers || {};
-  const clientIp = (headers['x-forwarded-for'] as string) || (req.socket && req.socket.remoteAddress) || '127.0.0.1';
-  const result = await processContactSubmission(body || {}, String(clientIp));
-
-  res.statusCode = result.status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(result.body));
+  try {
+    const result = await requestVerification(body?.name, body?.email || body?.gmail, body?.phone);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: true, ...result }));
+  } catch (err: any) {
+    res.statusCode = 400;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, message: err.message || 'Verification request failed.' }));
+  }
 }

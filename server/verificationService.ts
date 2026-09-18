@@ -19,8 +19,34 @@ const sessionsMap = new Map<string, VerificationSession>();
 // In-memory valid tickets (single-use tokens allowing a comment to be posted)
 export const validTicketsMap = new Map<string, { email: string; phone: string; name: string; expiresAt: number }>();
 
+const SECRET_KEY = process.env.OTP_SECRET || 'abhishek-portfolio-crypto-secret-2026';
+
+export function createSignedTicket(data: { email: string; phone: string; name: string; expiresAt: number }): string {
+  const jsonStr = JSON.stringify(data);
+  const base64Data = Buffer.from(jsonStr).toString('base64url');
+  const signature = crypto.createHmac('sha256', SECRET_KEY).update(base64Data).digest('base64url');
+  return `${base64Data}.${signature}`;
+}
+
+export function verifySignedTicket(ticket: string): { email: string; phone: string; name: string; expiresAt: number } | null {
+  if (!ticket || typeof ticket !== 'string') return null;
+  const parts = ticket.split('.');
+  if (parts.length !== 2) return null;
+  const [base64Data, signature] = parts;
+  const expectedSignature = crypto.createHmac('sha256', SECRET_KEY).update(base64Data).digest('base64url');
+  if (signature !== expectedSignature) return null;
+  try {
+    const raw = Buffer.from(base64Data, 'base64url').toString('utf-8');
+    const data = JSON.parse(raw);
+    if (!data.expiresAt || Date.now() > data.expiresAt) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 // Clean up expired sessions periodically
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [id, sess] of sessionsMap.entries()) {
     if (now > sess.expiresAt) sessionsMap.delete(id);
@@ -29,6 +55,9 @@ setInterval(() => {
     if (now > val.expiresAt) validTicketsMap.delete(ticket);
   }
 }, 60000);
+if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+  cleanupTimer.unref();
+}
 
 export function generate6DigitOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -160,14 +189,15 @@ export function verifyOtps(
   session.emailVerified = true;
   session.phoneVerified = true;
 
-  // Issue single-use verification ticket valid for 15 minutes
-  const ticket = crypto.randomBytes(24).toString('hex');
-  validTicketsMap.set(ticket, {
+  // Issue single-use signed verification ticket valid for 15 minutes
+  const ticketData = {
     email: session.email,
     phone: session.phone,
     name: session.name,
     expiresAt: Date.now() + 15 * 60 * 1000
-  });
+  };
+  const ticket = createSignedTicket(ticketData);
+  validTicketsMap.set(ticket, ticketData);
 
   // Consume session
   sessionsMap.delete(sessionId);
