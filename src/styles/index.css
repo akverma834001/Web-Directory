@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    --bg-primary: #f8fafc;
+    --bg-surface: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --accent: #10b981;
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --bg-primary: #090d12;
+    --bg-surface: #0f141d;
+    --border-color: #212a3a;
+    --text-primary: #f1f5f9;
+    --text-muted: #8492a6;
+    --accent: #10b981;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  ::selection {
+    background-color: rgba(16, 185, 129, 0.25);
+    color: inherit;
+  }
+
+  /* Custom Clean Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.55);
+  }
+
+  html.dark ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+  }
+
+  html.dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.45);
+  }
+}
+
+@layer utilities {
+  .subtle-border {
+    @apply border border-slate-300 dark:border-slate-800;
+  }
+  
+  .solid-frame {
+    @apply relative border-2 border-slate-300 dark:border-slate-800 bg-white dark:bg-dark-surface rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)] transition-all duration-200;
+  }
+
+  .solid-frame-hover {
+    @apply hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-md dark:hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)];
+  }
+
+  .solid-hud {
+    @apply font-mono text-xs border border-slate-300 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/90 rounded-lg backdrop-blur-sm;
+  }
+
+  .tech-card {
+    @apply bg-white dark:bg-dark-surface border-2 border-slate-200 dark:border-slate-800/90 rounded-xl transition-all duration-200;
+  }
+
+  .tech-card-hover {
+    @apply hover:border-emerald-500/80 dark:hover:border-emerald-500/70 hover:shadow-md dark:hover:shadow-[0_4px_24px_rgba(0,0,0,0.4)];
+  }
+
+  .terminal-window {
+    @apply font-mono text-sm bg-slate-950 text-slate-200 rounded-xl border-2 border-slate-800 shadow-2xl;
+  }
+
+  .engineering-grid {
+    background-image: 
+      linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  html.dark .engineering-grid {
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .mask-radial-vignette {
+    mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 30%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 30%, transparent 85%);
+  }
+}
+
+/* Mobile Devices Optimization (Screen <= 767px) - Zero impact on desktop >= 768px */
+@media screen and (max-width: 767px) {
+  /* Prevent iOS Safari auto-zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Optimize touch responsiveness */
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+/* Custom Developer Cursor - Hide default OS cursor only on fine pointer devices when active */
+@media (pointer: fine) {
+  body.custom-cursor-active,
+  body.custom-cursor-active button,
+  body.custom-cursor-active a,
+  body.custom-cursor-active input,
+  body.custom-cursor-active select,
+  body.custom-cursor-active textarea,
+  body.custom-cursor-active [role="button"] {
+    cursor: none !important;
+  }
+}
+
